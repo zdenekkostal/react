@@ -26,6 +26,8 @@ var onlyChild = require('onlyChild');
 // does not start and if it doesn't, we just call the end listener immediately.
 var TICK = 17;
 
+var WHITE_SPACE = /\s+/;
+
 var ReactCSSTransitionGroupChild = React.createClass({
   displayName: 'ReactCSSTransitionGroupChild',
 
@@ -69,7 +71,12 @@ var ReactCSSTransitionGroupChild = React.createClass({
     }
 
     var className = this.props.name[animationType] || this.props.name + '-' + animationType;
-    var activeClassName = this.props.name[animationType + 'Active'] || className + '-active';
+    var activeClassName = this.props.name[animationType + 'Active'];
+
+    if (!activeClassName) {
+      activeClassName = (className.split(WHITE_SPACE).length === 1) ? className + '-active' : className;
+    }
+
     var timeout = null;
 
     var endListener = function(e) {
@@ -79,8 +86,8 @@ var ReactCSSTransitionGroupChild = React.createClass({
 
       clearTimeout(timeout);
 
-      CSSCore.removeClass(node, className);
-      CSSCore.removeClass(node, activeClassName);
+      this.removeClass(node, className);
+      this.removeClass(node, activeClassName);
 
       ReactTransitionEvents.removeEndEventListener(node, endListener);
 
@@ -89,9 +96,9 @@ var ReactCSSTransitionGroupChild = React.createClass({
       if (finishCallback) {
         finishCallback();
       }
-    };
+    }.bind(this);
 
-    CSSCore.addClass(node, className);
+    this.addClass(node, className);
 
     // Need to do this to actually trigger a transition.
     this.queueClass(activeClassName);
@@ -115,11 +122,21 @@ var ReactCSSTransitionGroupChild = React.createClass({
     }
   },
 
-  flushClassNameQueue: function() {
+  addClass: function(node, className) {
+    this._splitClassName(className).map(CSSCore.addClass.bind(CSSCore, node));
+  },
+
+  removeClass: function(node, className) {
+    this._splitClassName(className).map(CSSCore.removeClass.bind(CSSCore, node));
+  },
+
+  _splitClassName: function(className) {
+    return className.split(WHITE_SPACE);
+  },
+
+  flushClassNameQueue: function () {
     if (this.isMounted()) {
-      this.classNameQueue.forEach(
-        CSSCore.addClass.bind(CSSCore, ReactDOM.findDOMNode(this))
-      );
+      this.classNameQueue.forEach(this.addClass.bind(this, ReactDOM.findDOMNode(this)));
     }
     this.classNameQueue.length = 0;
     this.timeout = null;
